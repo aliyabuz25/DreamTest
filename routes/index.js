@@ -19,13 +19,14 @@ router.get('/', logVisitor, (req, res) => {
 });
 
 router.get('/track', logVisitor, (req, res) => {
-    const code = req.query.code;
+    const rawCode = req.query.code;
     let order = null;
     let error = null;
+    let code = rawCode ? rawCode.replace(/\s/g, '') : null;
 
     if (code) {
         try {
-            order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
+            order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code);
             if (!order) {
                 error = 'Sipariş bulunamadı. Lütfen kodunuzu kontrol edin.';
             }

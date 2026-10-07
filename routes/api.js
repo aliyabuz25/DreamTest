@@ -75,18 +75,24 @@ router.post('/order', upload.any(), (req, res) => {
 });
 
 router.get('/track', (req, res) => {
-    const code = req.query.code;
-    if (!code) return res.json({ success: false, error: 'Kod gönderilmedi' });
+    const rawCode = req.query.code;
+    console.log('[API TRACK] Gelen kod:', rawCode);
+    if (!rawCode) return res.json({ success: false, error: 'Kod gönderilmedi' });
     
+    // Güvenlik: Tüm boşlukları temizle
+    const code = rawCode.replace(/\s/g, '');
+
     try {
-        // db.js _applyWhere'de case-insensitive yaptık, artık tek sorgu yeterli
-        const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
+        let order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code);
+        console.log('[API TRACK] Sonuç:', order ? 'Bulundu' : 'Bulunamadı');
+        
         if (order) {
             res.json({ success: true, order: order });
         } else {
             res.json({ success: false, error: 'Sipariş bulunamadı. Lütfen kodunuzu kontrol edin.' });
         }
     } catch (e) {
+        console.error('[API TRACK] Hata:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });

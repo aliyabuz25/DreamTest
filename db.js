@@ -184,8 +184,8 @@ const db = {
                 if (eqMatch) {
                     const col = eqMatch[1].split('.').pop();
                     const val = params[paramIdx++];
-                    // Case-insensitive ve tip bağımsız kontrol
-                    return String(row[col]).toLowerCase() === String(val).toLowerCase();
+                    if (row[col] === undefined || row[col] === null) return false;
+                    return String(row[col]).trim().toLowerCase() === String(val).trim().toLowerCase();
                 }
                 // status='value' (literal)
                 const litMatch = c.match(/(\w+)\s*=\s*'([^']+)'/i);
