@@ -40,9 +40,9 @@ const indexRoutes = require('./routes/index');
 const adminRoutes = require('./routes/admin');
 const apiRoutes = require('./routes/api');
 
-app.use('/', indexRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api', apiRoutes);
+app.use('/', indexRoutes);
 
 // Start Server
 app.listen(PORT, '0.0.0.0', () => {

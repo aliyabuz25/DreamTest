@@ -85,16 +85,15 @@ router.get('/logout', (req, res) => {
     res.redirect('/admin/login');
 });
 
-// Layout Variables Middleware for Admin Routes
-router.use(requireLogin);
-router.use((req, res, next) => {
+// Protected middleware - sadece korumalı route'lara uygulanır
+const protect = [requireLogin, (req, res, next) => {
     res.locals.currentPath = req.path;
     res.locals.adminUser = req.session.admin_user;
     next();
-});
+}];
 
 // Dashboard
-router.get('/', (req, res) => {
+router.get('/', protect, (req, res) => {
     const totalOrders = db.prepare("SELECT COUNT(*) as c FROM orders").get().c;
     const pendingOrders = db.prepare("SELECT COUNT(*) as c FROM orders WHERE status='beklemede'").get().c;
     const doneOrders = db.prepare("SELECT COUNT(*) as c FROM orders WHERE status='tamamlandi'").get().c;
@@ -130,7 +129,7 @@ router.get('/', (req, res) => {
 });
 
 // Orders Route
-router.get('/orders', (req, res) => {
+router.get('/orders', protect, (req, res) => {
     let detailOrder = null;
     let orders = [];
     let photos = [];
@@ -145,7 +144,7 @@ router.get('/orders', (req, res) => {
     res.render('admin/orders', { detailOrder, orders, photos });
 });
 
-router.post('/orders', (req, res) => {
+router.post('/orders', protect, (req, res) => {
     const { action, id } = req.body;
     
     if (action === 'update_status') {
@@ -191,7 +190,7 @@ router.post('/orders', (req, res) => {
 });
 
 // API for Reply
-router.post('/api/reply', upload.single('image'), (req, res) => {
+router.post('/api/reply', protect, upload.single('image'), (req, res) => {
     const { id, reply } = req.body;
     let imagePath = '';
     
@@ -228,7 +227,7 @@ router.post('/api/reply', upload.single('image'), (req, res) => {
 });
 
 // Dekont API
-router.get('/credits/dekont/:id', (req, res) => {
+router.get('/credits/dekont/:id', protect, (req, res) => {
     const credit = db.prepare("SELECT * FROM credits WHERE id = ?").get(req.params.id);
     if (!credit) return res.json({ ok: false });
     const order = credit.order_id ? db.prepare("SELECT * FROM orders WHERE id = ?").get(credit.order_id) : null;
@@ -236,7 +235,7 @@ router.get('/credits/dekont/:id', (req, res) => {
 });
 
 // Credits Route
-router.get('/credits', (req, res) => {
+router.get('/credits', protect, (req, res) => {
     const { format, subDays, startOfWeek, startOfMonth, startOfYear } = require('date-fns');
     const now = new Date();
 
@@ -268,7 +267,7 @@ router.get('/credits', (req, res) => {
     });
 });
 
-router.post('/credits', (req, res) => {
+router.post('/credits', protect, (req, res) => {
     const { action } = req.body;
     
     if (action === 'add') {
@@ -283,7 +282,7 @@ router.post('/credits', (req, res) => {
         res.json({ ok: true });
     }
 });
-router.post('/api/clear_visitors', (req, res) => {
+router.post('/api/clear_visitors', protect, (req, res) => {
     try {
         db.prepare("DELETE FROM visitors").run();
         res.json({ ok: true });
@@ -292,12 +291,12 @@ router.post('/api/clear_visitors', (req, res) => {
     }
 });
 // WhatsApp Route
-router.get('/whatsapp', (req, res) => {
+router.get('/whatsapp', protect, (req, res) => {
     res.render('admin/whatsapp');
 });
 
 // Settings Route
-router.get('/settings', (req, res) => {
+router.get('/settings', protect, (req, res) => {
     const tables = {
         'orders': 'Toplam Talep',
         'visitors': 'Ziyaretçi Kaydı',
@@ -314,7 +313,7 @@ router.get('/settings', (req, res) => {
     res.render('admin/settings', { counts, msg: null });
 });
 
-router.post('/settings', (req, res) => {
+router.post('/settings', protect, (req, res) => {
     const { action } = req.body;
     
     if (action === 'change_password') {
@@ -345,12 +344,12 @@ router.post('/settings', (req, res) => {
 });
 
 // Users Route
-router.get('/users', (req, res) => {
+router.get('/users', protect, (req, res) => {
     const users = db.prepare("SELECT id, username, created_at FROM users ORDER BY id ASC").all();
     res.render('admin/users', { users, currentUser: req.session.admin_id });
 });
 
-router.post('/users', (req, res) => {
+router.post('/users', protect, (req, res) => {
     const { action } = req.body;
 
     if (action === 'add') {
