@@ -1,10 +1,12 @@
 node_modules/
 admin/auth_info/
 admin/uploads/
+admin/db/
 public/uploads/
 *.db
 *.db-shm
 *.db-wal
 .env
-.DS_Storeelecar/
+.DS_Store
+elecar/elecar/
 elecar
