@@ -23,7 +23,8 @@ function generateCode() {
 // Yeni sipariş oluşturma (Eski api.php?action=create)
 router.post('/order', upload.any(), (req, res) => {
     try {
-        const { name, phone, email, car, plate, service, package, note } = req.body;
+        const { name, phone, email, car, plate, service, note } = req.body;
+        const pkg = req.body.package;
         const code = generateCode();
         
         // Ödeme adımı olduğu için her siparişi 'odeme_bekliyor' durumunda başlatıyoruz.
@@ -34,7 +35,7 @@ router.post('/order', upload.any(), (req, res) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
-        const result = stmt.run(code, name, phone, email, car, plate, service, package, note, initialStatus);
+        const result = stmt.run(code, name, phone, email, car, plate, service, pkg, note, initialStatus);
         const orderId = result.lastInsertRowid;
 
         // Dosyalar varsa 
