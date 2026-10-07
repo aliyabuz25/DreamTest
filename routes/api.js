@@ -46,31 +46,28 @@ router.post('/order', upload.any(), (req, res) => {
             });
         }
 
-        // Yeni sipariş eklendi
-        const newOrder = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
-
-        // WA Bildirimi
+        // WA Bildirimi - form verisinden direkt gönder (newOrder null olsa bile çalışır)
         const axios = require('axios');
         const { ADMIN_PHONE, WA_SERVER, SITE_URL } = require('../config');
         
-        // Müşteriye Mesaj
-        if (newOrder.phone) {
+        if (phone) {
             axios.post(`${WA_SERVER}/send`, {
-                phone: newOrder.phone,
-                message: `Sayın ${newOrder.name},\n\nDreamStudio'ya başvurduğunuz için teşekkür ederiz. Talebiniz sistemimize başarıyla kaydedilmiştir.\n\n— Talep Detayları —\nAraç: ${newOrder.car}\nHizmet: ${newOrder.service}\nPaket: ${newOrder.package || '-'}\nTakip Kodu: ${newOrder.code}\n\n— Ödeme Bilgileri —\nBanka: Akbank Altunizade\nHesap Sahibi: Celalettin Yabuz\nİBAN: TR96 0004 6008 6688 8000 0775 26\nAçıklama: ${newOrder.code}\n\nÖdemenizi gerçekleştirdikten sonra süreciniz başlatılacak olup en kısa sürede ekibimiz sizinle iletişime geçecektir.\n\nSipariş takibinizi aşağıdaki bağlantı üzerinden yapabilirsiniz:\n${SITE_URL}/track?code=${newOrder.code}\n\nSaygılarımızla,\nDreamStudio Tasarım & Üretim`
+                phone: phone,
+                message: `Sayın ${name},\n\nDreamStudio'ya başvurduğunuz için teşekkür ederiz. Talebiniz sistemimize başarıyla kaydedilmiştir.\n\n— Talep Detayları —\nAraç: ${car}\nHizmet: ${service}\nPaket: ${pkg || '-'}\nTakip Kodu: ${code}\n\n— Ödeme Bilgileri —\nBanka: Akbank Altunizade\nHesap Sahibi: Celalettin Yabuz\nİBAN: TR96 0004 6008 6688 8000 0775 26\nAçıklama: ${code}\n\nÖdemenizi gerçekleştirdikten sonra süreciniz başlatılacak olup en kısa sürede ekibimiz sizinle iletişime geçecektir.\n\nSipariş takibinizi aşağıdaki bağlantı üzerinden yapabilirsiniz:\n${SITE_URL}/track?code=${code}\n\nSaygılarımızla,\nDreamStudio Tasarım & Üretim`
             }).catch(e => console.error('WA Müşteri Mesaj Hatası:', e.message));
         }
 
-        // Admine Mesaj
         axios.post(`${WA_SERVER}/send`, {
             phone: ADMIN_PHONE,
-            message: `[YENİ TALEP]\n\nMüşteri: ${newOrder.name}\nTelefon: ${newOrder.phone}\nAraç: ${newOrder.car}\nHizmet: ${newOrder.service}\nPaket: ${newOrder.package || '-'}\nNot: ${newOrder.note || '-'}\nKod: ${newOrder.code}\n\nPanel: ${SITE_URL}/admin/orders`
+            message: `[YENİ TALEP]\n\nMüşteri: ${name}\nTelefon: ${phone}\nAraç: ${car}\nHizmet: ${service}\nPaket: ${pkg || '-'}\nNot: ${note || '-'}\nKod: ${code}\n\nPanel: ${SITE_URL}/admin/orders`
         }).catch(e => console.error('WA Admin Mesaj Hatası:', e.message));
+
+        const newOrder = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
 
         res.json({
             success: true,
             code: code,
-            order: newOrder
+            order: newOrder || { code, name, phone, car, service, status: initialStatus }
         });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
