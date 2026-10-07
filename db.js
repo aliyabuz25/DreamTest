@@ -161,8 +161,8 @@ const db = {
 
     _applyWhere(data, whereClause, params) {
         const conditions = whereClause.split(/\s+AND\s+/i);
-        let paramIdx = 0;
         return data.filter(row => {
+            let paramIdx = 0; // Her satır için parametre indeksi sıfırlanmalı
             return conditions.every(cond => {
                 const c = cond.trim();
                 // date(col) = ?
@@ -192,7 +192,7 @@ const db = {
                 if (litMatch) {
                     const col = litMatch[1];
                     const val = litMatch[2];
-                    return String(row[col]).toLowerCase() === String(val).toLowerCase();
+                    return String(row[col]).trim().toLowerCase() === String(val).trim().toLowerCase();
                 }
                 paramIdx++;
                 return true;
