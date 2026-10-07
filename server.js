@@ -29,7 +29,12 @@ const sessionDir = path.join(__dirname, 'admin', 'db', 'sessions');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
 app.use(session({
-    store: new FileStore({ path: sessionDir, retries: 1, reapInterval: 3600 }),
+    store: new FileStore({ 
+        path: sessionDir, 
+        retries: 0, 
+        reapInterval: 3600,
+        logFn: function() {} // Hata loglarını susturur (ENOENT için)
+    }),
     secret: process.env.SESSION_SECRET || 'dreamstudio_secret_key_2026',
     resave: false,
     saveUninitialized: false,
