@@ -26,9 +26,44 @@ const requireLogin = (req, res, next) => {
     next();
 };
 
+// Setup Route — sadece hiç kullanıcı yokken erişilebilir
+router.get('/setup', (req, res) => {
+    const users = db.prepare("SELECT id FROM users").all();
+    if (users.length > 0) return res.redirect('/admin/login');
+    res.render('admin/setup', { error: null });
+});
+
+router.post('/setup', (req, res) => {
+    const users = db.prepare("SELECT id FROM users").all();
+    if (users.length > 0) return res.redirect('/admin/login'); // Zafiyet önleme
+
+    const { username, password, confirm } = req.body;
+
+    if (!username || username.length < 3) {
+        return res.render('admin/setup', { error: 'Kullanıcı adı en az 3 karakter olmalı.' });
+    }
+    if (!password || password.length < 8) {
+        return res.render('admin/setup', { error: 'Şifre en az 8 karakter olmalı.' });
+    }
+    if (password !== confirm) {
+        return res.render('admin/setup', { error: 'Şifreler eşleşmiyor.' });
+    }
+    // Güçlü şifre kontrolü
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        return res.render('admin/setup', { error: 'Şifre en az 1 büyük harf ve 1 rakam içermeli.' });
+    }
+
+    const hash = bcrypt.hashSync(password, 12);
+    db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(username, hash);
+    res.redirect('/admin/login');
+});
+
 // Login Route
 router.get('/login', (req, res) => {
     if (req.session.admin_id) return res.redirect('/admin');
+    // Kullanıcı yoksa setup'a yönlendir
+    const users = db.prepare("SELECT id FROM users").all();
+    if (users.length === 0) return res.redirect('/admin/setup');
     res.render('admin/login', { error: null });
 });
 

@@ -29,12 +29,8 @@ function nextId(arr) {
 const TABLES = ['users', 'orders', 'order_photos', 'visitors', 'credits'];
 TABLES.forEach(t => { if (!fs.existsSync(path.join(dataDir, `${t}.json`))) writeJSON(t, []); });
 
-// Varsayılan admin
-const users = readJSON('users');
-if (!users.find(u => u.username === 'admin')) {
-    users.push({ id: 1, username: 'admin', password: bcrypt.hashSync('123456', 10), created_at: now() });
-    writeJSON('users', users);
-}
+// Kullanıcı yoksa setup sayfasına yönlendirme db.js tarafında yapılmaz,
+// routes/admin.js içinde /admin/setup rotası halleder.
 
 // SQLite-benzeri API (prepare/get/all/run)
 function makeQuery(table) {
