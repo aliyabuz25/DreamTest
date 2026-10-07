@@ -79,7 +79,8 @@ router.get('/track', (req, res) => {
     if (!code) return res.json({ success: false, error: 'Kod gönderilmedi' });
     
     try {
-        const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code);
+        let order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
+        if (!order) order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim().toUpperCase());
         if (order) {
             res.json({ success: true, order: order });
         } else {

@@ -25,7 +25,11 @@ router.get('/track', logVisitor, (req, res) => {
 
     if (code) {
         try {
-            order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code);
+            order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim().toUpperCase());
+            if (!order) {
+                // Küçük harfle de dene
+                order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
+            }
             if (!order) {
                 error = 'Sipariş bulunamadı. Lütfen kodunuzu kontrol edin.';
             }

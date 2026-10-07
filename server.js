@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -24,8 +25,11 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Session
+const sessionDir = process.env.SESSION_DIR || '/tmp/sessions';
+if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+
 app.use(session({
-    store: new FileStore({ path: '/tmp/sessions', retries: 1 }),
+    store: new FileStore({ path: sessionDir, retries: 1, reapInterval: 3600 }),
     secret: process.env.SESSION_SECRET || 'dreamstudio_secret_key_2026',
     resave: false,
     saveUninitialized: false,
