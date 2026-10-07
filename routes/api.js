@@ -79,12 +79,12 @@ router.get('/track', (req, res) => {
     if (!code) return res.json({ success: false, error: 'Kod gönderilmedi' });
     
     try {
-        let order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
-        if (!order) order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim().toUpperCase());
+        // db.js _applyWhere'de case-insensitive yaptık, artık tek sorgu yeterli
+        const order = db.prepare("SELECT * FROM orders WHERE code = ?").get(code.trim());
         if (order) {
             res.json({ success: true, order: order });
         } else {
-            res.json({ success: false, error: 'Sipariş bulunamadı' });
+            res.json({ success: false, error: 'Sipariş bulunamadı. Lütfen kodunuzu kontrol edin.' });
         }
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

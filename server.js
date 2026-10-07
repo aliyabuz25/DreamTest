@@ -25,7 +25,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Session
-const sessionDir = process.env.SESSION_DIR || '/tmp/sessions';
+const sessionDir = path.join(__dirname, 'admin', 'db', 'sessions');
 if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
 
 app.use(session({

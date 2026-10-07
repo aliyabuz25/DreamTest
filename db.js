@@ -170,28 +170,29 @@ const db = {
                 if (dateEqMatch) {
                     const col = dateEqMatch[1];
                     const val = params[paramIdx++];
-                    return row[col] && row[col].substring(0, 10) === val;
+                    return row[col] && row[col].substring(0, 10) === String(val);
                 }
                 // date(col) >= ?
                 const dateGteMatch = c.match(/date\((\w+)\)\s*>=\s*\?/i);
                 if (dateGteMatch) {
                     const col = dateGteMatch[1];
                     const val = params[paramIdx++];
-                    return row[col] && row[col].substring(0, 10) >= val;
+                    return row[col] && row[col].substring(0, 10) >= String(val);
                 }
                 // col = ?
                 const eqMatch = c.match(/(\w+(?:\.\w+)?)\s*=\s*\?/i);
                 if (eqMatch) {
                     const col = eqMatch[1].split('.').pop();
                     const val = params[paramIdx++];
-                    return String(row[col]) === String(val);
+                    // Case-insensitive ve tip bağımsız kontrol
+                    return String(row[col]).toLowerCase() === String(val).toLowerCase();
                 }
                 // status='value' (literal)
                 const litMatch = c.match(/(\w+)\s*=\s*'([^']+)'/i);
                 if (litMatch) {
                     const col = litMatch[1];
                     const val = litMatch[2];
-                    return String(row[col]) === String(val);
+                    return String(row[col]).toLowerCase() === String(val).toLowerCase();
                 }
                 paramIdx++;
                 return true;
