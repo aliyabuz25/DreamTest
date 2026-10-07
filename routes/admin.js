@@ -149,7 +149,7 @@ router.post('/orders', protect, (req, res) => {
     
     if (action === 'update_status') {
         const { status } = req.body;
-        db.prepare("UPDATE orders SET status=?, updated_at=datetime('now','localtime') WHERE id=?").run(status, id);
+        db.prepare("UPDATE orders SET status=? WHERE id=?").run(status, id);
 
         // Tamamlandıysa otomatik gelir kaydı ekle (mükerrer önleme)
         if (status === 'tamamlandi') {
@@ -199,7 +199,7 @@ router.post('/api/reply', protect, upload.single('image'), (req, res) => {
     }
 
     try {
-        db.prepare("UPDATE orders SET reply=?, reply_image=?, status='tamamlandi', updated_at=datetime('now','localtime') WHERE id=?").run(reply, imagePath, id);
+        db.prepare("UPDATE orders SET reply=?, reply_image=?, status='tamamlandi' WHERE id=?").run(reply, imagePath, id);
         
         // WhatsApp Bildirimi
         const axios = require('axios');
