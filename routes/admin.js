@@ -295,6 +295,31 @@ router.get('/whatsapp', protect, (req, res) => {
     res.render('admin/whatsapp');
 });
 
+// WA Proxy endpoints - tarayıcıdan direkt 3001'e bağlanmak yerine server üzerinden
+const axios = require('axios');
+const WA_SERVER = process.env.WA_SERVER_URL || 'http://localhost:3001';
+
+router.get('/wa/status', protect, async (req, res) => {
+    try {
+        const r = await axios.get(`${WA_SERVER}/status`, { timeout: 3000 });
+        res.json(r.data);
+    } catch(e) { res.json({ status: 'disconnected' }); }
+});
+
+router.post('/wa/start', protect, async (req, res) => {
+    try {
+        const r = await axios.post(`${WA_SERVER}/start`, {}, { timeout: 30000 });
+        res.json(r.data);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/wa/disconnect', protect, async (req, res) => {
+    try {
+        const r = await axios.post(`${WA_SERVER}/disconnect`, {}, { timeout: 5000 });
+        res.json(r.data);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Settings Route
 router.get('/settings', protect, (req, res) => {
     const tables = {

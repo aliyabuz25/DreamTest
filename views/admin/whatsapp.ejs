@@ -33,7 +33,7 @@ async function checkStatus() {
   const badge = document.getElementById('statusBadge');
   const qrBox = document.getElementById('qrContainer');
   try {
-    const res = await fetch('http://localhost:3001/status');
+    const res = await fetch('/admin/wa/status');
     const data = await res.json();
     
     if (data.status === 'connected') {
@@ -60,7 +60,7 @@ async function startWa() {
   badge.innerHTML = '<i class="ri-loader-4-line" style="animation:spin 1s linear infinite;display:inline-block;"></i> Başlatılıyor...';
   
   try {
-    const res = await fetch('http://localhost:3001/start', { method: 'POST' });
+    const res = await fetch('/admin/wa/start', { method: 'POST' });
     const data = await res.json();
     
     if (data.status === 'connected') {
@@ -72,7 +72,7 @@ async function startWa() {
       
       // Auto refresh to check if connected
       const checkInterval = setInterval(async () => {
-        const sRes = await fetch('http://localhost:3001/status');
+        const sRes = await fetch('/admin/wa/status');
         const sData = await sRes.json();
         if(sData.status === 'connected') {
           clearInterval(checkInterval);
@@ -89,7 +89,7 @@ async function startWa() {
 async function disconnectWa() {
   if(!confirm('Mevcut WhatsApp bağlantısını kesmek istediğinize emin misiniz?')) return;
   try {
-    await fetch('http://localhost:3001/disconnect', { method: 'POST' });
+    await fetch('/admin/wa/disconnect', { method: 'POST' });
     checkStatus();
   } catch(e) {
     alert('Hata oluştu');
