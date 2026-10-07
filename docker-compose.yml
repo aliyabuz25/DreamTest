@@ -40,7 +40,7 @@ services:
       - edge
     labels:
       - traefik.enable=true
-      - traefik.docker.network=octobot-net
+      - traefik.docker.network=edge
       - traefik.http.services.celalyabuz-ds.loadbalancer.server.port=3000
 
       # HTTP → HTTPS redirect
