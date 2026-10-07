@@ -40,9 +40,13 @@ async function checkStatus() {
       badge.className = 'badge-status s-tamamlandi';
       badge.innerHTML = '<i class="ri-check-line"></i> Bağlı & Aktif';
       qrBox.innerHTML = '<i class="ri-whatsapp-fill" style="font-size:5rem;color:#34d399;"></i><p style="color:var(--muted);margin-top:1rem;font-size:1rem;">WhatsApp başarıyla bağlandı. Sipariş güncellemeleri otomatik gönderilecek.</p>';
-    } else if (data.status === 'qr') {
+    } else if (data.status === 'qr' && data.qr) {
       badge.className = 'badge-status s-inceleniyor';
       badge.innerHTML = '<i class="ri-qr-code-line"></i> QR Okutmanız Bekleniyor';
+      qrBox.innerHTML = '<div style="background:#fff;padding:1rem;border-radius:12px;display:inline-block;">' + data.qr + '</div><p style="color:var(--muted);margin-top:1rem;">WhatsApp > Bağlı Cihazlar > Cihaz Ekle</p>';
+    } else if (data.status === 'qr') {
+      badge.className = 'badge-status s-inceleniyor';
+      badge.innerHTML = '<i class="ri-loader-4-line" style="animation:spin 1s linear infinite;display:inline-block;"></i> QR Hazırlanıyor...';
     } else {
       badge.className = 'badge-status s-iptal';
       badge.innerHTML = '<i class="ri-close-circle-line"></i> Bağlantı Yok';
@@ -50,7 +54,7 @@ async function checkStatus() {
     }
   } catch(e) {
     badge.className = 'badge-status s-iptal';
-    badge.innerHTML = 'Sunucuya Ulaşılamadı (Port 3001 kapalı olabilir)';
+    badge.innerHTML = 'Sunucuya Ulaşılamadı';
   }
 }
 
@@ -67,21 +71,35 @@ async function startWa() {
       checkStatus();
     } else if (data.qr) {
       badge.className = 'badge-status s-inceleniyor';
-      badge.innerHTML = 'Lütfen Telefonunuzdan QR Kodunu Okutun';
+      badge.innerHTML = '<i class="ri-qr-code-line"></i> Lütfen Telefonunuzdan QR Kodunu Okutun';
       qrBox.innerHTML = '<div style="background:#fff;padding:1rem;border-radius:12px;display:inline-block;">' + data.qr + '</div><p style="color:var(--muted);margin-top:1rem;">WhatsApp > Bağlı Cihazlar > Cihaz Ekle</p>';
-      
-      // Auto refresh to check if connected
-      const checkInterval = setInterval(async () => {
+    } else {
+      badge.className = 'badge-status s-iptal';
+      badge.innerHTML = '<i class="ri-close-circle-line"></i> Bağlantı Kurulamadı';
+    }
+    
+    // Her 3 saniyede durum kontrol et
+    const checkInterval = setInterval(async () => {
+      try {
         const sRes = await fetch('/admin/wa/status');
         const sData = await sRes.json();
-        if(sData.status === 'connected') {
+        if (sData.status === 'connected') {
           clearInterval(checkInterval);
           checkStatus();
+        } else if (sData.status === 'qr' && sData.qr) {
+          badge.className = 'badge-status s-inceleniyor';
+          badge.innerHTML = '<i class="ri-qr-code-line"></i> Lütfen Telefonunuzdan QR Kodunu Okutun';
+          qrBox.innerHTML = '<div style="background:#fff;padding:1rem;border-radius:12px;display:inline-block;">' + sData.qr + '</div><p style="color:var(--muted);margin-top:1rem;">WhatsApp > Bağlı Cihazlar > Cihaz Ekle</p>';
         }
-      }, 2000);
-    }
+      } catch(e) {}
+    }, 3000);
+    
+    // 3 dakika sonra interval'i durdur
+    setTimeout(() => clearInterval(checkInterval), 180000);
+    
   } catch(e) {
-    alert('WhatsApp Sunucusu başlatılamadı.');
+    badge.className = 'badge-status s-iptal';
+    badge.innerHTML = '<i class="ri-close-circle-line"></i> WhatsApp Sunucusu başlatılamadı';
     checkStatus();
   }
 }

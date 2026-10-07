@@ -1,7 +1,9 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const express = require('express');
 const cors = require('cors');
 const QRCode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -10,49 +12,105 @@ app.use(express.json());
 let sock = null;
 let status = 'disconnected';
 let latestQR = null;
+let isStarting = false;
+let reconnectTimer = null;
+
+const AUTH_DIR = path.join(__dirname, 'admin', 'auth_info');
+if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
 
 async function startSocket() {
-  const { state, saveCreds } = await useMultiFileAuthState('./admin/auth_info');
-  sock = makeWASocket({ 
-    auth: state, 
-    browser: ['DreamStudio', 'Chrome', '1.0'],
-    logger: require('pino')({ level: 'silent' })
-  });
+  if (isStarting) return;
+  isStarting = true;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
 
-  sock.ev.on('creds.update', saveCreds);
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+    const { version } = await fetchLatestBaileysVersion();
 
-  sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr) {
-      latestQR = await QRCode.toString(qr, { type: 'svg', width: 250 });
-      status = 'qr';
-      console.log('QR ready');
-    }
-    if (connection === 'open') {
-      status = 'connected';
-      latestQR = null;
-      console.log('WhatsApp connected!');
-    }
-    if (connection === 'close') {
-      status = 'disconnected';
-      const reason = lastDisconnect?.error?.output?.statusCode;
-      if (reason !== DisconnectReason.loggedOut) {
-        console.log('Reconnecting...');
-        setTimeout(startSocket, 3000);
-      } else {
-        status = 'loggedout';
-        sock = null;
+    sock = makeWASocket({
+      version,
+      auth: state,
+      browser: ['DreamStudio', 'Chrome', '120.0.0'],
+      logger: require('pino')({ level: 'silent' }),
+      keepAliveIntervalMs: 30000,
+      connectTimeoutMs: 60000,
+      retryRequestDelayMs: 2000,
+      maxMsgRetryCount: 3,
+      markOnlineOnConnect: false,
+      syncFullHistory: false,
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        try {
+          latestQR = await QRCode.toString(qr, { type: 'svg', width: 256 });
+          status = 'qr';
+          console.log('QR ready');
+        } catch(e) { console.error('QR error:', e.message); }
       }
-    }
-  });
+
+      if (connection === 'open') {
+        status = 'connected';
+        latestQR = null;
+        isStarting = false;
+        console.log('WhatsApp connected!');
+      }
+
+      if (connection === 'close') {
+        isStarting = false;
+        const code = lastDisconnect?.error?.output?.statusCode;
+        const reason = lastDisconnect?.error?.output?.payload?.error;
+        console.log(`WA closed. Code: ${code}, Reason: ${reason}`);
+
+        if (code === DisconnectReason.loggedOut) {
+          status = 'loggedout';
+          sock = null;
+          latestQR = null;
+          console.log('Logged out — clear auth_info to reconnect');
+        } else {
+          status = 'disconnected';
+          latestQR = null;
+          sock = null;
+          console.log('Reconnecting in 5s...');
+          reconnectTimer = setTimeout(startSocket, 5000);
+        }
+      }
+    });
+
+  } catch(e) {
+    isStarting = false;
+    status = 'disconnected';
+    console.error('WA start error:', e.message);
+    reconnectTimer = setTimeout(startSocket, 10000);
+  }
 }
 
 app.post('/start', async (req, res) => {
   try {
     if (status === 'connected') return res.json({ status: 'connected', qr: null });
-    await startSocket();
+
+    if (status === 'loggedout') {
+      // Auth dosyalarını temizle
+      if (fs.existsSync(AUTH_DIR)) {
+        fs.readdirSync(AUTH_DIR).forEach(f => fs.unlinkSync(path.join(AUTH_DIR, f)));
+      }
+      status = 'disconnected';
+      latestQR = null;
+    }
+
+    if (!isStarting) startSocket();
+
+    // QR oluşana kadar bekle (max 30s)
     let tries = 0;
-    while (!latestQR && tries < 20) { await new Promise(r => setTimeout(r, 500)); tries++; }
+    while (status !== 'qr' && status !== 'connected' && tries < 60) {
+      await new Promise(r => setTimeout(r, 500));
+      tries++;
+    }
+
     res.json({ status, qr: latestQR });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -60,30 +118,44 @@ app.post('/start', async (req, res) => {
 });
 
 app.get('/status', (req, res) => {
-  res.json({ status });
+  res.json({ status, qr: status === 'qr' ? latestQR : null });
 });
 
 app.post('/send', async (req, res) => {
   const { phone, message } = req.body;
-  if (!sock || status !== 'connected') return res.status(400).json({ ok: false, error: 'Not connected' });
+  if (!sock || status !== 'connected') {
+    console.error('WA send failed: not connected, status:', status);
+    return res.status(400).json({ ok: false, error: 'Not connected' });
+  }
   try {
     const jid = phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
     await sock.sendMessage(jid, { text: message });
+    console.log('WA sent to:', phone);
     res.json({ ok: true });
   } catch (e) {
+    console.error('WA send error:', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
 app.post('/disconnect', async (req, res) => {
-  if (sock) { await sock.logout(); sock = null; }
-  status = 'disconnected';
-  latestQR = null;
-  res.json({ ok: true });
+  try {
+    if (sock) {
+      await sock.logout();
+      sock = null;
+    }
+    status = 'disconnected';
+    latestQR = null;
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    res.json({ ok: true });
+  } catch(e) {
+    sock = null;
+    status = 'disconnected';
+    res.json({ ok: true });
+  }
 });
 
 app.listen(3001, '0.0.0.0', () => {
   console.log('WA Server running on port 3001');
-  // Sunucu başlarken otomatik bağlantı kur
   startSocket().catch(e => console.error('WA Auto-start error:', e.message));
 });
