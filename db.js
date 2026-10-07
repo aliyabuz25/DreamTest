@@ -134,7 +134,15 @@ const db = {
             });
         }
 
-        // COUNT
+        // COUNT(DISTINCT col)
+        if (/SELECT\s+COUNT\(DISTINCT\s+(\w+)\)/i.test(sql)) {
+            const colMatch = sql.match(/COUNT\(DISTINCT\s+(\w+)\)/i);
+            const col = colMatch ? colMatch[1] : 'id';
+            const unique = new Set(data.map(r => r[col]));
+            return { c: unique.size };
+        }
+
+        // COUNT(*)
         if (/SELECT\s+COUNT\(\*\)/i.test(sql)) {
             return { c: data.length };
         }
@@ -152,22 +160,38 @@ const db = {
     },
 
     _applyWhere(data, whereClause, params) {
-        // Basit WHERE: col = ? AND col = ?
         const conditions = whereClause.split(/\s+AND\s+/i);
         let paramIdx = 0;
         return data.filter(row => {
             return conditions.every(cond => {
-                const eqMatch = cond.match(/(\w+(?:\.\w+)?)\s*=\s*\?/i);
-                const likeMatch = cond.match(/date\((\w+)\)\s*>=\s*\?/i);
+                const c = cond.trim();
+                // date(col) = ?
+                const dateEqMatch = c.match(/date\((\w+)\)\s*=\s*\?/i);
+                if (dateEqMatch) {
+                    const col = dateEqMatch[1];
+                    const val = params[paramIdx++];
+                    return row[col] && row[col].substring(0, 10) === val;
+                }
+                // date(col) >= ?
+                const dateGteMatch = c.match(/date\((\w+)\)\s*>=\s*\?/i);
+                if (dateGteMatch) {
+                    const col = dateGteMatch[1];
+                    const val = params[paramIdx++];
+                    return row[col] && row[col].substring(0, 10) >= val;
+                }
+                // col = ?
+                const eqMatch = c.match(/(\w+(?:\.\w+)?)\s*=\s*\?/i);
                 if (eqMatch) {
                     const col = eqMatch[1].split('.').pop();
                     const val = params[paramIdx++];
                     return String(row[col]) === String(val);
                 }
-                if (likeMatch) {
-                    const col = likeMatch[1];
-                    const val = params[paramIdx++];
-                    return row[col] && row[col].substring(0, 10) >= val;
+                // status='value' (literal)
+                const litMatch = c.match(/(\w+)\s*=\s*'([^']+)'/i);
+                if (litMatch) {
+                    const col = litMatch[1];
+                    const val = litMatch[2];
+                    return String(row[col]) === String(val);
                 }
                 paramIdx++;
                 return true;
