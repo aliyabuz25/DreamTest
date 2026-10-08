@@ -5,7 +5,10 @@
     <div class="card-ds p-4 h-100">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="section-title mb-0">Müşteri Listesi</div>
-        <button class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="selectAll()">Tümünü Seç / Bırak</button>
+        <div class="d-flex gap-2">
+          <button class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem;color:#059669;border-color:#059669;" onclick="fetchWaChats(this)"><i class="ri-whatsapp-line"></i> WA Son 100 Kişi</button>
+          <button class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="selectAll()">Tümünü Seç / Bırak</button>
+        </div>
       </div>
       
       <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Sipariş oluşturan müşterileriniz arasından kampanya mesajı göndermek istediklerinizi seçin.</p>
@@ -98,6 +101,51 @@
   function updateCount() {
       const selected = $('.customer-cb:checked', table.rows().nodes()).length;
       $('#selectedCount').text(selected);
+  }
+
+  async function fetchWaChats(btn) {
+      const oldTxt = btn.innerHTML;
+      btn.innerHTML = '<i class="ri-loader-4-line" style="animation:spin 1s linear infinite;display:inline-block;"></i> Yükleniyor...';
+      btn.disabled = true;
+
+      try {
+          const r = await fetch('/admin/wa/chats');
+          const d = await r.json();
+          if (d.ok && d.data && d.data.length > 0) {
+              const currentPhones = new Set();
+              $('.customer-cb', table.rows().nodes()).each(function() {
+                  currentPhones.add($(this).val());
+              });
+
+              let added = 0;
+              d.data.forEach((c) => {
+                  if (!currentPhones.has(c.phone)) {
+                      const cbId = 'wa-' + c.phone;
+                      table.row.add([
+                          `<div style="text-align:center;"><input type="checkbox" class="customer-cb" value="${c.phone}" id="${cbId}"></div>`,
+                          `<label for="${cbId}" style="cursor:pointer;font-weight:600;margin:0;color:#059669;">${c.name} (WA)</label>`,
+                          `<span style="font-size:0.9rem;color:var(--muted);">${c.phone}</span>`,
+                          `<span style="font-size:0.85rem;">${c.last_car}</span>`
+                      ]);
+                      added++;
+                  }
+              });
+              
+              if (added > 0) {
+                  table.draw(false);
+                  alert(`WhatsApp'tan ${added} yeni kişi listeye eklendi!`);
+              } else {
+                  alert('WhatsApp kişileri zaten listede mevcut.');
+              }
+          } else {
+              alert(d.error || 'WhatsApp listesi boş veya sunucuya bağlanılamadı.');
+          }
+      } catch (e) {
+          alert('Hata oluştu');
+      } finally {
+          btn.innerHTML = oldTxt;
+          btn.disabled = false;
+      }
   }
 
   async function sendCampaign() {

@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, makeInMemoryStore } = require('@whiskeysockets/baileys');
 const express = require('express');
 const cors = require('cors');
 const QRCode = require('qrcode');
@@ -14,6 +14,13 @@ let status = 'disconnected';
 let latestQR = null;
 let isStarting = false;
 let reconnectTimer = null;
+
+// Chat ve Contact verilerini hafızada tutmak için store oluştur
+const store = makeInMemoryStore({ logger: require('pino')({ level: 'silent' }) });
+store.readFromFile('./admin/auth_info/baileys_store.json');
+setInterval(() => {
+  store.writeToFile('./admin/auth_info/baileys_store.json');
+}, 10_000);
 
 const AUTH_DIR = path.join(__dirname, 'admin', 'auth_info');
 if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
@@ -39,6 +46,9 @@ async function startSocket() {
       markOnlineOnConnect: false,
       syncFullHistory: false,
     });
+
+    // Store'u socket'e bağla
+    store.bind(sock.ev);
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -152,6 +162,34 @@ app.post('/disconnect', async (req, res) => {
     sock = null;
     status = 'disconnected';
     res.json({ ok: true });
+  }
+});
+
+app.get('/chats', async (req, res) => {
+  if (!sock || status !== 'connected') {
+    return res.status(400).json({ ok: false, error: 'WhatsApp bağlı değil' });
+  }
+  try {
+    // Tüm sohbetleri al ve son mesaja göre sırala
+    const chats = store.chats.all().sort((a, b) => {
+      const tsA = a.conversationTimestamp || 0;
+      const tsB = b.conversationTimestamp || 0;
+      return tsB - tsA; // Azalan sıra (en yeni en üstte)
+    });
+
+    // En son 100 sohbeti filtrele (grupları ve özel jid'leri yoksay, sadece normal numaralar)
+    const recent100 = chats
+      .filter(c => c.id && c.id.endsWith('@s.whatsapp.net'))
+      .slice(0, 100)
+      .map(c => {
+        let phone = c.id.split('@')[0];
+        let name = c.name || phone; // İsmi yoksa numarasını isim yap
+        return { name: name, phone: phone, last_car: 'WhatsApp Kişisi' };
+      });
+
+    res.json({ ok: true, data: recent100 });
+  } catch(e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 

@@ -353,6 +353,15 @@ router.get('/wa/status', protect, async (req, res) => {
     } catch(e) { res.json({ status: 'disconnected' }); }
 });
 
+router.get('/wa/chats', protect, async (req, res) => {
+    try {
+        const r = await axios.get(`${WA_SERVER}/chats`, { timeout: 10000 });
+        res.json(r.data);
+    } catch(e) { 
+        res.json({ ok: false, error: 'WA Sunucusuna bağlanılamadı veya veriler henüz sekronize edilmedi.' }); 
+    }
+});
+
 router.post('/wa/start', protect, async (req, res) => {
     try {
         const r = await axios.post(`${WA_SERVER}/start`, {}, { timeout: 30000 });
