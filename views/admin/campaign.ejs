@@ -1,0 +1,153 @@
+<%- include('layout') %>
+
+<div class="row g-4">
+  <div class="col-md-7">
+    <div class="card-ds p-4 h-100">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="section-title mb-0">Müşteri Listesi</div>
+        <button class="btn-outline" style="font-size:0.8rem;padding:0.4rem 0.8rem;" onclick="selectAll()">Tümünü Seç / Bırak</button>
+      </div>
+      
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1.5rem;">Sipariş oluşturan müşterileriniz arasından kampanya mesajı göndermek istediklerinizi seçin.</p>
+      
+      <div class="table-responsive" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <table class="table table-hover align-middle mb-0" id="customersTable" style="width:100%">
+          <thead>
+            <tr>
+              <th style="width:40px;text-align:center;"><input type="checkbox" id="checkAll" onchange="toggleCheckboxes(this)"></th>
+              <th>Müşteri Adı</th>
+              <th>Telefon Numarası</th>
+              <th>Son Araç</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% customers.forEach((c, idx) => { %>
+            <tr>
+              <td style="text-align:center;">
+                <input type="checkbox" class="customer-cb" value="<%= c.phone %>" id="cb-<%= idx %>">
+              </td>
+              <td><label for="cb-<%= idx %>" style="cursor:pointer;font-weight:600;margin:0;"><%= c.name %></label></td>
+              <td style="font-size:0.9rem;color:var(--muted);"><%= c.phone %></td>
+              <td style="font-size:0.85rem;"><%= c.last_car %></td>
+            </tr>
+            <% }); %>
+            <% if (customers.length === 0) { %>
+            <tr><td colspan="4" class="text-center p-4 text-muted">Hiç müşteri bulunamadı.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card-ds p-4" style="position:sticky; top:80px;">
+      <div class="section-title">Mesaj İçeriği</div>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem;">Seçilen müşterilere gönderilecek WhatsApp kampanya veya bilgilendirme mesajını buraya yazın.</p>
+      
+      <div class="mb-3">
+        <textarea id="campaignMessage" class="form-control" rows="8" placeholder="Örn: Merhaba, DreamStudio'dan yeni yıl kampanyası! ..."></textarea>
+      </div>
+
+      <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); border-radius:10px; padding:1rem; margin-bottom:1.5rem; font-size:0.85rem; color:#d97706;">
+        <i class="ri-information-line me-1"></i> <strong>Önemli:</strong> Çok fazla kişiye art arda aynı mesajı atmak WhatsApp tarafından spam olarak algılanabilir.
+      </div>
+
+      <button class="btn-accent w-100" id="sendBtn" onclick="sendCampaign()">
+        <i class="ri-send-plane-fill"></i> Seçili Kişilere Gönder (<span id="selectedCount">0</span>)
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+  let table;
+  
+  $(document).ready(function() {
+      table = $('#customersTable').DataTable({
+          language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+          order: [[1, 'asc']], // İsime göre sırala
+          pageLength: 50,
+          columnDefs: [{ orderable: false, targets: 0 }],
+          drawCallback: function() { updateCount(); }
+      });
+
+      // DataTables pagination yapınca diğer sayfalardaki checkbox seçimleri DataTable içinde saklı kalır.
+      // Sadece o an ekranda görünen checkboxlara tıklanınca sayacı güncelliyoruz.
+      $('#customersTable tbody').on('change', '.customer-cb', function() {
+          updateCount();
+      });
+  });
+
+  function toggleCheckboxes(source) {
+      // Sadece mevcut sayfadaki veya filtrelenmiş checkbox'ları işaretler
+      $('.customer-cb', table.rows({search:'applied'}).nodes()).prop('checked', source.checked);
+      updateCount();
+  }
+
+  function selectAll() {
+      const isChecked = $('#checkAll').prop('checked');
+      $('#checkAll').prop('checked', !isChecked);
+      toggleCheckboxes(document.getElementById('checkAll'));
+  }
+
+  function updateCount() {
+      const selected = $('.customer-cb:checked', table.rows().nodes()).length;
+      $('#selectedCount').text(selected);
+  }
+
+  async function sendCampaign() {
+      // Tüm sayfalardaki işaretli checkboxları bul (Sadece DOM'da olanları değil, DataTable verisinde olanları)
+      const selectedPhones = [];
+      $('.customer-cb:checked', table.rows().nodes()).each(function() {
+          selectedPhones.push($(this).val());
+      });
+
+      const message = document.getElementById('campaignMessage').value.trim();
+
+      if (selectedPhones.length === 0) return alert('Lütfen en az 1 müşteri seçin.');
+      if (!message) return alert('Lütfen mesaj içeriği girin.');
+      
+      if (!confirm(`Bu mesaj toplam ${selectedPhones.length} kişiye WhatsApp üzerinden gönderilecek. Emin misiniz?`)) return;
+
+      const btn = document.getElementById('sendBtn');
+      const oldTxt = btn.innerHTML;
+      btn.innerHTML = '<i class="ri-loader-4-line" style="animation:spin 1s linear infinite;display:inline-block;"></i> Gönderiliyor... Lütfen bekleyin.';
+      btn.disabled = true;
+
+      try {
+          const r = await fetch('/admin/campaign/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phones: selectedPhones, message })
+          });
+          const d = await r.json();
+          if (d.ok) {
+              alert(`İşlem tamamlandı!\nBaşarılı: ${d.successCount}\nBaşarısız: ${d.failCount}`);
+              document.getElementById('campaignMessage').value = '';
+              $('.customer-cb', table.rows().nodes()).prop('checked', false);
+              $('#checkAll').prop('checked', false);
+              updateCount();
+          } else {
+              alert('Hata: ' + d.error);
+          }
+      } catch (e) {
+          alert('Gönderim sırasında sunucu bağlantı hatası oluştu.');
+      } finally {
+          btn.innerHTML = oldTxt;
+          btn.disabled = false;
+      }
+  }
+</script>
+
+<style>
+/* Checkbox Customization for Light Theme */
+input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--text); }
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+
+<%- include('layout_end') %>

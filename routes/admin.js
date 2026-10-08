@@ -295,6 +295,53 @@ router.get('/whatsapp', protect, (req, res) => {
     res.render('admin/whatsapp');
 });
 
+// Campaign (Toplu Mesaj) Route
+router.get('/campaign', protect, (req, res) => {
+    // Benzersiz müşterileri (telefon bazlı) çekelim
+    const allOrders = db.prepare("SELECT name, phone, car FROM orders ORDER BY created_at DESC").all();
+    const uniqueCustomers = [];
+    const phoneSet = new Set();
+    
+    for (const o of allOrders) {
+        if (o.phone && !phoneSet.has(o.phone)) {
+            phoneSet.add(o.phone);
+            uniqueCustomers.push({ name: o.name, phone: o.phone, last_car: o.car });
+        }
+    }
+    
+    res.render('admin/campaign', { customers: uniqueCustomers });
+});
+
+router.post('/campaign/send', protect, async (req, res) => {
+    const { phones, message } = req.body;
+    if (!phones || !Array.isArray(phones) || phones.length === 0) {
+        return res.json({ ok: false, error: 'Hiçbir müşteri seçilmedi.' });
+    }
+    if (!message || message.trim() === '') {
+        return res.json({ ok: false, error: 'Mesaj boş olamaz.' });
+    }
+
+    const axios = require('axios');
+    const { WA_SERVER } = require('../config');
+    let successCount = 0;
+    let failCount = 0;
+
+    // Mesajları sırayla gönder (WhatsApp ban riskini azaltmak için ufak bir bekleme koyulabilir)
+    for (const phone of phones) {
+        try {
+            await axios.post(`${WA_SERVER}/send`, { phone, message });
+            successCount++;
+            // Çok hızlı atmamak için 500ms bekle (isteğe bağlı ama iyi pratik)
+            await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (e) {
+            failCount++;
+            console.error(`Kampanya gönderim hatası (${phone}):`, e.message);
+        }
+    }
+
+    res.json({ ok: true, successCount, failCount });
+});
+
 // WA Proxy endpoints - tarayıcıdan direkt 3001'e bağlanmak yerine server üzerinden
 const axios = require('axios');
 const WA_SERVER = process.env.WA_SERVER_URL || 'http://localhost:3001';

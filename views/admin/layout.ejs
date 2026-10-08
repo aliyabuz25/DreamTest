@@ -161,6 +161,7 @@ div.dataTables_wrapper div.dataTables_info { color: var(--muted) !important; mar
     
     <div class="nav-section">İletişim</div>
     <a href="/admin/whatsapp" class="nav-item <%= currentPath === '/whatsapp' ? 'active' : '' %>"><i class="ri-whatsapp-line"></i> WhatsApp</a>
+    <a href="/admin/campaign" class="nav-item <%= currentPath === '/campaign' ? 'active' : '' %>"><i class="ri-megaphone-line"></i> Kampanya</a>
     
     <div class="nav-section">Finans</div>
     <a href="/admin/credits" class="nav-item <%= currentPath === '/credits' ? 'active' : '' %>"><i class="ri-coins-line"></i> Kredi & Hesap</a>
@@ -180,7 +181,7 @@ div.dataTables_wrapper div.dataTables_info { color: var(--muted) !important; mar
       <button class="sidebar-toggler" onclick="toggleSidebar()"><i class="ri-menu-line"></i></button>
       <h1 class="topbar-title">
         <% 
-          const titles = {'/':'Dashboard','/orders':'Gelen Talepler','/whatsapp':'WhatsApp Bağlantısı','/credits':'Kredi & Hesap','/users':'Kullanıcılar','/settings':'Ayarlar'};
+          const titles = {'/':'Dashboard','/orders':'Gelen Talepler','/whatsapp':'WhatsApp Bağlantısı','/campaign':'Kampanya & Toplu Mesaj','/credits':'Kredi & Hesap','/users':'Kullanıcılar','/settings':'Ayarlar'};
           const title = titles[currentPath] || 'Dashboard';
         %>
         <%= title %>
